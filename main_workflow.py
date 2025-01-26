@@ -3,28 +3,31 @@ from phi.model.google import Gemini
 from phi.tools.file import FileTools
 
 from phi.workflow import Workflow, RunResponse, RunEvent
-from phi.utils.pprint import pprint_run_response
+#from phi.utils.pprint import pprint_run_response
 from phi.utils.log import logger
 
 from typing import Optional, Iterator
 
 from pydantic import BaseModel, Field
 
-from prompts import MAIN_PROMPT_MBTI, MAIN_PROMPT_BIG5, MAIN_PROMPT_DISC, MAIN_PROMPT_Enneagram, MAIN_PROMPT_Manager, MAIN_PROMPT_Simulation
+from prompts import MAIN_PROMPT_MBTI, MAIN_PROMPT_BIG5, MAIN_PROMPT_DISC, MAIN_PROMPT_Enneagram
+from prompts import MAIN_PROMPT_Manager, MAIN_PROMPT_Simulation
 
 from pathlib import Path
+import os
+import time
 
 ###############
 # GLOBAL VARS #
 ###############
-file_name = "FedorVera.txt"
+file_name = input("Enter the name of the file: ")
 MBTI_result_file_name = file_name[:-4]+"_MBTI.txt"
 BIG5_result_file_name = file_name[:-4]+"_BIG5.txt"
 DISC_result_file_name = file_name[:-4]+"_DISC.txt"
 Enneagram_result_file_name = file_name[:-4]+"_Enneagram.txt"
 Profile_result_file_name = file_name[:-4]+"_Profile.txt"
 
-work_dir = Path("/home/sniffspoof/phidata")
+work_dir = Path(__file__).parent.resolve()
 
 model = Gemini(id="gemini-2.0-flash-exp")
 
@@ -46,7 +49,7 @@ class ProfileGenerator(Workflow):
         tools = [FileTools(base_dir=work_dir)],
         instructions=[MAIN_PROMPT_MBTI.format(file_name=file_name, MBTI_result_file_name=MBTI_result_file_name)],
         show_tool_calls=False,
-        markdown=True,
+        markdown=True
     )
 
     BIG5: Agent = Agent(
@@ -106,82 +109,136 @@ class ProfileGenerator(Workflow):
 
         logger.info(f"Starting workflow with id:{self.session_id}")
 
+        def is_file_valid(file_path: Path):
+            if file_path.exists():
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    content = f.read().strip()
+                    #todo Cache Agent
+                    return len(content) > 50
+            return False
+
+        def time_logger(func):
+            def wrapper(*args, **kwargs):
+                start_time = time.time()
+                result = func(*args, **kwargs)
+                end_time = time.time()
+                execution_time = end_time - start_time
+                logger.info(f"Function {func.__name__} executed in {execution_time:.4f} seconds.")
+                return result
+            return wrapper
+
+        @time_logger
+        def MBTI_run(p: str):
+            self.MBTI.run(p)
+
+        @time_logger
+        def BIG5_run(p: str):
+            self.BIG5.run(p)
+
+        @time_logger
+        def DISC_run(p: str):
+            self.DISC.run(p)
+
+        @time_logger
+        def Enneagram_run(p: str):
+            self.Enneagram.run(p)
+
+        @time_logger
+        def Manager_run(p: str):
+            self.Manager.run(p)
+        ########################################################################
+        # Step 0: Checking already prepared files for each psychological model #
+        ########################################################################
         if use_cache:
-            cache_agent: Agent = Agent(
-                name="Cache Agent",
-                role="File Asistant",
-                model=model,
-                tools = [FileTools(base_dir=work_dir)],
-                instructions=[MAIN_PROMPT_Manager.format(
-                                file_name=file_name,
-                                Enneagram_result_file_name=Enneagram_result_file_name,
-                                DISC_result_file_name=DISC_result_file_name,
-                                BIG5_result_file_name=BIG5_result_file_name,
-                                MBTI_result_file_name=MBTI_result_file_name,
-                                Profile_result_file_name=Profile_result_file_name
-                                )],
-                show_tool_calls=False,
-                markdown=True,
-            )
+            logger.info("Checking cache...")
+            files_to_check = {
+                MBTI_result_file_name: MBTI_run,
+                BIG5_result_file_name: BIG5_run,
+                DISC_result_file_name: DISC_run,
+                Enneagram_result_file_name: Enneagram_run,
+            }
 
-        #######################################################
-        # Step 1: Generate files for each psychological model #
-        #######################################################
-        logger.info("Generate files for each psychological model")
-        try:
-            #self.MBTI.print_response(PROMPT, stream=True)
-            #self.BIG5.print_response(PROMPT, stream=True)
-            #self.DISC.print_response(PROMPT, stream=True)
-            #self.Enneagram.print_response(PROMPT, stream=True)
+            missing_files = []
+            for result_file, agent_run_method in files_to_check.items():
+                file_path = work_dir / result_file
+                if not is_file_valid(file_path):
+                    missing_files.append((result_file, agent_run_method))
 
-            logger.info("Starting MBTI_Agent")
-            MBTI_response: RunResponse = self.MBTI.run(PROMPT)
-            logger.info("MBTI_Agent finished")
+            if not missing_files:
+                logger.info("All files are cached and valid. Skipping agent execution.")
+                return
 
-            logger.info("Starting BIG5_Agent")
-            BIG5_response: RunResponse = self.BIG5.run(PROMPT)
-            logger.info("BIG5_Agent finished")
-
-            logger.info("Starting DISC_Agent")
-            DISC_response: RunResponse = self.DISC.run(PROMPT)
-            logger.info("DISC_Agent finished")
-
-            logger.info("Starting Enneagram_Agent")
-            Enneagram_response: RunResponse = self.Enneagram.run(PROMPT)
-            logger.info("Enneagram_Agent finished")
-        except Exception as e:
-            logger.warning(f"Error running agents: {e}")
-
-        #######################################################
-        # Step 1.1: Check If some files have not been created #
-        #######################################################
-        files_to_check = {
-            MBTI_result_file_name: self.MBTI.run,
-            BIG5_result_file_name: self.BIG5.run,
-            DISC_result_file_name: self.DISC.run,
-            Enneagram_result_file_name: self.Enneagram.run,
-        }
-
-        missing_files = []
-        for file_name, agent_run_method in files_to_check.items():
-            file_path = work_dir / file_name
-            if not file_path.exists():
-                missing_files.append((file_name, agent_run_method))
-
-        if missing_files:
-            logger.warning("Missing files:")
+            logger.warning("Missing or invalid files detected:")
             for missing_file, _ in missing_files:
                 logger.warning(f"- {missing_file}")
-            logger.info("Rerunning agents with missing files")
+            logger.info("Rerunning agents for missing files")
+
             for missing_file, agent_run_method in missing_files:
                 file_path = work_dir / missing_file
                 max_retries = 3
                 retries = 1
-                while not file_path.exists() and retries <= max_retries:
-                    logger.info(f"{missing_file} missed. Rerunning the agent")
-                    response: RunResponse = agent_run_method(PROMPT+"Please dont forget to save file!")
-                    logger.info(f"{missing_file.split('_')[0]}_Agent finished")
+                while not file_path.exists() or not is_file_valid(file_path):
+                    if retries > max_retries:
+                        logger.error(f"Failed to generate {missing_file} after {max_retries} retries")
+                        break
+                    logger.info(f"Generating missing file: {missing_file} (Attempt {retries})")
+                    agent_run_method(PROMPT + " Please don't forget to save file!")
                     retries += 1
+
+        #######################################################
+        # Step 1: Generate files for each psychological model #
+        #######################################################
+        else:
+            logger.info("Generate files for each psychological model")
+            try:
+                logger.info("Starting MBTI_Agent")
+                MBTI_response: RunResponse = MBTI_run(PROMPT)
+                logger.info("MBTI_Agent finished")
+
+                logger.info("Starting BIG5_Agent")
+                BIG5_response: RunResponse = BIG5_run(PROMPT)
+                logger.info("BIG5_Agent finished")
+
+                logger.info("Starting DISC_Agent")
+                DISC_response: RunResponse = DISC_run(PROMPT)
+                logger.info("DISC_Agent finished")
+
+                logger.info("Starting Enneagram_Agent")
+                Enneagram_response: RunResponse = Enneagram_run(PROMPT)
+                logger.info("Enneagram_Agent finished")
+            except Exception as e:
+                logger.warning(f"Error running agents: {e}")
+
+            #######################################################
+            # Step 1.1: Check If some files have not been created #
+            #######################################################
+            files_to_check = {
+                MBTI_result_file_name: MBTI_run,
+                BIG5_result_file_name: BIG5_run,
+                DISC_result_file_name: DISC_run,
+                Enneagram_result_file_name: Enneagram_run,
+            }
+
+            missing_files = []
+            for file_name, agent_run_method in files_to_check.items():
+                file_path = work_dir / file_name
+                if not file_path.exists():
+                    missing_files.append((file_name, agent_run_method))
+
+            if missing_files:
+                logger.warning("Missing files:")
+                for missing_file, _ in missing_files:
+                    logger.warning(f"- {missing_file}")
+                logger.info("Rerunning agents with missing files")
+                for missing_file, agent_run_method in missing_files:
+                    file_path = work_dir / missing_file
+                    max_retries = 3
+                    retries = 1
+                    while not file_path.exists() and retries <= max_retries:
+                        logger.info(f"{missing_file} missed. Rerunning the agent")
+                        response: RunResponse = agent_run_method(PROMPT+"Please dont forget to save file!")
+                        logger.info(f"{missing_file.split('_')[0]}_Agent finished")
+                        retries += 1
 
 
         #####################################################
@@ -191,7 +248,7 @@ class ProfileGenerator(Workflow):
         try:
             #self.Manager.print_response(PROMPT, stream=True)
             logger.info("Starting profile generator agent")
-            Manager_response: RunResponse = self.Manager.run(PROMPT)
+            Manager_response: RunResponse = Manager_run(PROMPT)
             logger.info("Profile generator agent finished")
         except Exception as e:
             logger.warning(f"Error running agent: {e}")
@@ -206,7 +263,7 @@ class ProfileGenerator(Workflow):
             retries = 1
             while not file_path.exists() and retries <= 3:
                 logger.info("Profile file missed. Rerunning the agent")
-                Enneagram_response: RunResponse = self.Enneagram.run(PROMPT+"Please dont forget to save file!")
+                Manager_response: RunResponse = Manager_run(PROMPT+"Please dont forget to save file!")
                 logger.info("Profile generator agent finished")
                 retries+=1
 
@@ -216,12 +273,11 @@ if __name__ == "__main__":
         session_id=f"generate-profile-on-{file_name}"
         )
 
-    profile: Iterator[RunResponse] = generate_profile.run(file_name=file_name)
+    profile: Iterator[RunResponse] = generate_profile.run(file_name=file_name, use_cache=True)
     logger.info("Psychological profiles generated")
     if input("Do you want continue (Y/N)? ").lower() == "y":
         name = input("Whose psychological profile are you interested in? ")
 
-        #init agent
         Simulation_agent = Agent(
             name="Simulation",
             role="Psychologi Specialist",
