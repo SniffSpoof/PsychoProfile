@@ -1,16 +1,17 @@
 from phi.agent import Agent
 from phi.model.google import Gemini
+from phi.model.groq import Groq
 from phi.tools.file import FileTools
 
 from phi.workflow import Workflow, RunResponse, RunEvent
-#from phi.utils.pprint import pprint_run_response
+import re
 from phi.utils.log import logger
 
 from typing import Optional, Iterator
 
 from pydantic import BaseModel, Field
 
-from prompts import MAIN_PROMPT_MBTI, MAIN_PROMPT_BIG5, MAIN_PROMPT_DISC, MAIN_PROMPT_Enneagram
+from prompts import MAIN_PROMPT_MBTI, MAIN_PROMPT_BIG5, MAIN_PROMPT_DISC, MAIN_PROMPT_Enneagram, MAIN_PROMPT_SocialStyles
 from prompts import MAIN_PROMPT_Manager, MAIN_PROMPT_Simulation
 
 from pathlib import Path
@@ -25,11 +26,23 @@ MBTI_result_file_name = file_name[:-4]+"_MBTI.txt"
 BIG5_result_file_name = file_name[:-4]+"_BIG5.txt"
 DISC_result_file_name = file_name[:-4]+"_DISC.txt"
 Enneagram_result_file_name = file_name[:-4]+"_Enneagram.txt"
+SocialStyles_result_file_name = file_name[:-4]+"_SocialStyles.txt"
 Profile_result_file_name = file_name[:-4]+"_Profile.txt"
 
 work_dir = Path(__file__).parent.resolve()
 
-model = Gemini(id="gemini-2.0-flash-exp")
+"""model = Gemini(
+    id="gemini-2.0-flash-exp",
+    generation_config={
+        "temperature": 0
+    }
+)"""
+
+model = Groq(id="deepseek-r1-distill-llama-70b", api_key="")
+
+is_Groq = isinstance(model, Groq)
+
+tools = None if is_Groq else [FileTools(base_dir=work_dir)]
 
 PROMPT = """
     Follow the instructions described to you.
@@ -37,6 +50,7 @@ PROMPT = """
     The result must be saved only once and the work must be completed.
     """
 
+PROMPT = open(file_name, "r").read() if is_Groq else PROMPT
 
 class ProfileGenerator(Workflow):
     ################
@@ -46,7 +60,7 @@ class ProfileGenerator(Workflow):
         name="MBTI",
         role="MBTI Specialist",
         model=model,
-        tools = [FileTools(base_dir=work_dir)],
+        tools = tools,
         instructions=[MAIN_PROMPT_MBTI.format(file_name=file_name, MBTI_result_file_name=MBTI_result_file_name)],
         show_tool_calls=False,
         markdown=True
@@ -56,7 +70,7 @@ class ProfileGenerator(Workflow):
         name="BIG5",
         role="BIG5 Specialist",
         model=model,
-        tools = [FileTools(base_dir=work_dir)],
+        tools = tools,
         instructions=[MAIN_PROMPT_BIG5.format(file_name=file_name, BIG5_result_file_name=BIG5_result_file_name)],
         show_tool_calls=False,
         markdown=True,
@@ -66,7 +80,7 @@ class ProfileGenerator(Workflow):
         name="DISC",
         role="DISC Specialist",
         model=model,
-        tools = [FileTools(base_dir=work_dir)],
+        tools = tools,
         instructions=[MAIN_PROMPT_DISC.format(file_name=file_name, DISC_result_file_name=DISC_result_file_name)],
         show_tool_calls=False,
         markdown=True,
@@ -76,8 +90,18 @@ class ProfileGenerator(Workflow):
         name="Enneagram",
         role="Enneagram Specialist",
         model=model,
-        tools = [FileTools(base_dir=work_dir)],
+        tools = tools,
         instructions=[MAIN_PROMPT_Enneagram.format(file_name=file_name, Enneagram_result_file_name=Enneagram_result_file_name)],
+        show_tool_calls=False,
+        markdown=True,
+    )
+
+    SocialStyles: Agent = Agent(
+        name="Social Styles",
+        role="Social Styles Specialist",
+        model=model,
+        tools = tools,
+        instructions=[MAIN_PROMPT_SocialStyles.format(file_name=file_name, SocialStyles_result_file_name=SocialStyles_result_file_name)],
         show_tool_calls=False,
         markdown=True,
     )
@@ -86,13 +110,14 @@ class ProfileGenerator(Workflow):
         name="Manager",
         role="Summary Specialist",
         model=model,
-        tools = [FileTools(base_dir=work_dir)],
+        tools = tools,
         instructions=[MAIN_PROMPT_Manager.format(
                         file_name=file_name,
                         Enneagram_result_file_name=Enneagram_result_file_name,
                         DISC_result_file_name=DISC_result_file_name,
                         BIG5_result_file_name=BIG5_result_file_name,
                         MBTI_result_file_name=MBTI_result_file_name,
+                        SocialStyles_result_file_name=SocialStyles_result_file_name,
                         Profile_result_file_name=Profile_result_file_name
                         )],
         show_tool_calls=False,
@@ -129,23 +154,67 @@ class ProfileGenerator(Workflow):
 
         @time_logger
         def MBTI_run(p: str):
-            self.MBTI.run(p)
+            if is_Groq:
+                with open(MBTI_result_file_name, "w") as file:
+                    file.write(self.MBTI.run(p).content)
+            else:
+                return self.MBTI.run(p)
 
         @time_logger
         def BIG5_run(p: str):
-            self.BIG5.run(p)
+            if is_Groq:
+                with open(BIG5_result_file_name, "w") as file:
+                    file.write(self.BIG5.run(p).content)
+            else:
+                return self.BIG5.run(p)
 
         @time_logger
         def DISC_run(p: str):
-            self.DISC.run(p)
+            if is_Groq:
+                with open(DISC_result_file_name, "w") as file:
+                    file.write(self.DISC.run(p).content)
+            else:
+                return self.DISC.run(p)
 
         @time_logger
         def Enneagram_run(p: str):
-            self.Enneagram.run(p)
+            if is_Groq:
+                with open(Enneagram_result_file_name, "w") as file:
+                    file.write(self.Enneagram.run(p).content)
+            else:
+                return self.Enneagram.run(p)
+
+        @time_logger
+        def SocialStyles_run(p: str):
+            if is_Groq:
+                with open(SocialStyles_result_file_name, "w") as file:
+                    file.write(self.SocialStyles.run(p).content)
+            else:
+                return self.SocialStyles.run(p)
 
         @time_logger
         def Manager_run(p: str):
-            self.Manager.run(p)
+            if is_Groq:
+                prompt = ""
+                with open(MBTI_result_file_name, "r") as file:
+                    prompt += file.read()
+                with open(BIG5_result_file_name, "r") as file:
+                    prompt += file.read()
+                with open(DISC_result_file_name, "r") as file:
+                    prompt += file.read()
+                with open(Enneagram_result_file_name, "r") as file:
+                    prompt += file.read()
+                with open(SocialStyles_result_file_name, "r") as file:
+                    prompt += file.read()
+
+                with open(Profile_result_file_name, "w") as file:
+                    temp = self.Manager.run(p)
+                    file.write(temp.content)
+                    return temp
+            else:
+                return self.Manager.run(p)
+
+
         ########################################################################
         # Step 0: Checking already prepared files for each psychological model #
         ########################################################################
@@ -156,6 +225,7 @@ class ProfileGenerator(Workflow):
                 BIG5_result_file_name: BIG5_run,
                 DISC_result_file_name: DISC_run,
                 Enneagram_result_file_name: Enneagram_run,
+                SocialStyles_result_file_name: SocialStyles_run
             }
 
             missing_files = []
@@ -166,7 +236,6 @@ class ProfileGenerator(Workflow):
 
             if not missing_files:
                 logger.info("All files are cached and valid. Skipping agent execution.")
-                return
 
             logger.warning("Missing or invalid files detected:")
             for missing_file, _ in missing_files:
@@ -175,14 +244,14 @@ class ProfileGenerator(Workflow):
 
             for missing_file, agent_run_method in missing_files:
                 file_path = work_dir / missing_file
-                max_retries = 3
+                max_retries = 5
                 retries = 1
                 while not file_path.exists() or not is_file_valid(file_path):
                     if retries > max_retries:
                         logger.error(f"Failed to generate {missing_file} after {max_retries} retries")
                         break
                     logger.info(f"Generating missing file: {missing_file} (Attempt {retries})")
-                    agent_run_method(PROMPT + " Please don't forget to save file!")
+                    agent_run_method(PROMPT)
                     retries += 1
 
         #######################################################
@@ -206,6 +275,10 @@ class ProfileGenerator(Workflow):
                 logger.info("Starting Enneagram_Agent")
                 Enneagram_response: RunResponse = Enneagram_run(PROMPT)
                 logger.info("Enneagram_Agent finished")
+
+                logger.info("Starting SocialStyles_Agent")
+                Enneagram_response: RunResponse = SocialStyles_run(PROMPT)
+                logger.info("SocialStyles_Agent finished")
             except Exception as e:
                 logger.warning(f"Error running agents: {e}")
 
@@ -217,6 +290,7 @@ class ProfileGenerator(Workflow):
                 BIG5_result_file_name: BIG5_run,
                 DISC_result_file_name: DISC_run,
                 Enneagram_result_file_name: Enneagram_run,
+                SocialStyles_result_file_name: SocialStyles_run
             }
 
             missing_files = []
@@ -232,11 +306,11 @@ class ProfileGenerator(Workflow):
                 logger.info("Rerunning agents with missing files")
                 for missing_file, agent_run_method in missing_files:
                     file_path = work_dir / missing_file
-                    max_retries = 3
+                    max_retries = 5
                     retries = 1
                     while not file_path.exists() and retries <= max_retries:
                         logger.info(f"{missing_file} missed. Rerunning the agent")
-                        response: RunResponse = agent_run_method(PROMPT+"Please dont forget to save file!")
+                        response: RunResponse = agent_run_method(PROMPT)
                         logger.info(f"{missing_file.split('_')[0]}_Agent finished")
                         retries += 1
 
@@ -250,6 +324,7 @@ class ProfileGenerator(Workflow):
             logger.info("Starting profile generator agent")
             Manager_response: RunResponse = Manager_run(PROMPT)
             logger.info("Profile generator agent finished")
+            return Manager_response
         except Exception as e:
             logger.warning(f"Error running agent: {e}")
 
@@ -259,13 +334,15 @@ class ProfileGenerator(Workflow):
         file_path = work_dir / Profile_result_file_name
         if not file_path.exists():
             logger.warning("Profile file have not been created")
-            max_retries = 3
+            max_retries = 15
             retries = 1
-            while not file_path.exists() and retries <= 3:
+            while not file_path.exists() and retries <= max_retries:
                 logger.info("Profile file missed. Rerunning the agent")
-                Manager_response: RunResponse = Manager_run(PROMPT+"Please dont forget to save file!")
+                Manager_response: RunResponse = Manager_run(PROMPT)
                 logger.info("Profile generator agent finished")
                 retries+=1
+
+            return Manager_response
 
 
 if __name__ == "__main__":
@@ -273,17 +350,31 @@ if __name__ == "__main__":
         session_id=f"generate-profile-on-{file_name}"
         )
 
-    profile: Iterator[RunResponse] = generate_profile.run(file_name=file_name, use_cache=True)
+    profile: Iterator[RunResponse] = generate_profile.run(file_name=file_name, use_cache=False)
     logger.info("Psychological profiles generated")
     if input("Do you want continue (Y/N)? ").lower() == "y":
         name = input("Whose psychological profile are you interested in? ")
+
+        MAIN_PROMPT_Simulation = MAIN_PROMPT_Simulation.format(file_name=file_name, Profile_result_file_name=Profile_result_file_name, name=name)
+
+        if is_Groq:
+            profile_text = ""
+            context_text = ""
+
+            with open(Profile_result_file_name) as file:
+                profile_text += file.read()
+
+            with open(file_name) as file:
+                context_text += file.read()
+
+            MAIN_PROMPT_Simulation += "\nProfile:\n" + profile_text + "\nContext:\n" + context_text
 
         Simulation_agent = Agent(
             name="Simulation",
             role="Psychologi Specialist",
             model=model,
-            tools = [FileTools(base_dir=work_dir)],
-            instructions=[MAIN_PROMPT_Simulation.format(Profile_result_file_name=Profile_result_file_name, name=name)],
+            tools = tools,
+            instructions=[MAIN_PROMPT_Simulation],
             show_tool_calls=False,
             markdown=True,
         )
