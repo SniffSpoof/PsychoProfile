@@ -1,0 +1,64 @@
+MBTI_task:
+  description: >
+    Your task is to analyze the conversation or monologue in the {file_name}.txt file.
+    The file contains text in Russian.
+    Based on the content of the file, analyze the participants' psychological traits and construct their MBTI personality profiles.
+    If it is a monologue, analyze the speaker's profile.
+    Provide your analysis in Russian, including reasoning behind your conclusions and YOU MUST save it in {file_name}_MBTI.txt file.
+  expected_output: >
+    MBTI personality profile based on conversation or monologue in {file_name}.txt file and save your results in {file_name}_MBTI.txt file at {file_path}.
+  agent: MBTI_Agent
+
+BigFive_task:
+  description: >
+    Your task is to analyze the conversation or monologue in the {file_name}.txt file.
+    The file contains text in Russian.
+    Based on the content of the file, analyze the participants' psychological traits according to the Big Five dimensions: Openness, Conscientiousness, Extraversion, Agreeableness, and Neuroticism.
+    If it is a monologue, analyze the speaker's traits.
+    Provide your analysis in Russian, including reasoning behind your conclusions and YOU MUST save it in {file_name}_BigFive.txt file.
+  expected_output: >
+    Big personality profile based on conversation or monologue in {file_name}.txt file and save your results in {file_name}_BigFive.txt file at {file_path}.
+  agent: BigFive_Agent
+
+DISC_task:
+  description: >
+    Your task is to analyze the conversation or monologue in the {file_name}.txt file.
+    The file contains text in Russian.
+    Based on the content of the file, analyze the participants' behavioral traits according to the DISC dimensions: Dominance, Influence, Steadiness, and Conscientiousness.
+    If it is a monologue, analyze the speaker's traits.
+    Provide your analysis in Russian, including reasoning behind your conclusions and YOU MUST save it in {file_name}_DISC.txt file.
+  expected_output: >
+    DISC personality profile based on conversation or monologue in {file_name}.txt file and save your results in {file_name}_DISC.txt file at {file_path}.
+  agent: DISC_Agent
+
+Enneagram_task:
+  description: >
+    Your task is to analyze the conversation or monologue in the {file_name}.txt file.
+    The file contains text in Russian.
+    Based on the content of the file, analyze the participants' psychological traits and identify their Enneagram types (from Type 1 to Type 9).
+    If it is a monologue, analyze the speaker's type.
+    Provide your analysis in Russian, including reasoning behind your conclusions and YOU MUST save it in {file_name}_Enneagram.txt file.
+  expected_output: >
+    Enneagram personality profile based on conversation or monologue in {file_name}.txt file and save your results in {file_name}_Enneagram.txt file at {file_path}.
+  agent: Enneagram_Agent
+
+Psychologist_task:
+  description: >
+    Each agent has provided their individual analysis and results in .txt files ({file_name}_MBTI/_BigFive/_DISC/_Enneagram) at {file_path}.
+    Your task is to review their results and combine the findings into a single, cohesive psychological profile of the participants (or speaker, if it is a monologue).
+    Ensure that the final profile integrates insights from all four models, highlighting key personality traits, patterns, and behaviors.
+    Present the final psychological portrait in English, providing a well-reasoned and holistic summary.
+  expected_output: >
+    Final psychological profile at {file_path} in {file_name}_final.txt
+  agent: Psychologist_Agent
+
+Simulation_task:
+  description: >
+    Your task is to analyze the psychological profile of the individual named {name} from the file {file_name}_final.txt at {file_path}.
+    Based on the profile and on context in {file_name}, simulate how this person would respond or react to the next message provided to you: {text}.
+    Also you need to provide facts from psychological profile on which you crafting your answer.
+    Consider other profiles in the file for additional context when crafting the response."
+  expected_output: >
+    Based on the profile and on context in {file_name}, simulate how this person would respond or react to the next message provided to you.
+    Also you need to provide facts from psychological profile on which you crafting your answer.
+  agent: Simulation_Agent
