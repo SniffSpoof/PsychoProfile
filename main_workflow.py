@@ -31,13 +31,6 @@ Profile_result_file_name = file_name[:-4]+"_Profile.txt"
 
 work_dir = Path(__file__).parent.resolve()
 
-"""model = Gemini(
-    id="gemini-2.0-flash-exp",
-    generation_config={
-        "temperature": 0
-    }
-)"""
-
 model = Groq(id="deepseek-r1-distill-llama-70b", api_key="")
 
 is_Groq = isinstance(model, Groq)
@@ -350,8 +343,9 @@ if __name__ == "__main__":
         session_id=f"generate-profile-on-{file_name}"
         )
 
-    profile: Iterator[RunResponse] = generate_profile.run(file_name=file_name, use_cache=False)
+    profile: Iterator[RunResponse] = generate_profile.run(file_name=file_name, use_cache=True)
     logger.info("Psychological profiles generated")
+    
     if input("Do you want continue (Y/N)? ").lower() == "y":
         name = input("Whose psychological profile are you interested in? ")
 
@@ -378,6 +372,7 @@ if __name__ == "__main__":
             show_tool_calls=False,
             markdown=True,
         )
+
         prompt = ""
         while prompt.lower() != "stop":
             prompt = input("Enter the phrase you'd like to simulate with (or 'stop' to exit): ")
