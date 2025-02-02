@@ -165,9 +165,49 @@ MAIN_PROMPT_Manager = """You are a psychology manager specializing in integratin
         """
 
 MAIN_PROMPT_Simulation = """Act as a psychology expert.
-Your task is to analyze the psychological profile of the individual named {name} from the file {Profile_result_file_name}.
-Based on the profile and on context in {file_name}, simulate how this person would respond or react to the next message provided to you.
+Your task is to analyze the psychological profile of the individual named {name} from the file {Profile_result_file_name}, simulate their response to the provided message, and provide a detailed rationale for your prediction. Follow this structured approach:
 
-Also you need to provide facts from psychological profile on which you crafting your answer.
-Consider other profiles in the file for additional context when crafting the response.
+### **Step 1: Profile & Context Analysis**
+1. **Psychological Profile Review**:
+   - Analyze personality traits (e.g., Myers-Briggs, attachment style), behavioral patterns, and decision-making styles.
+   - Incorporate insights from other profiles in {file_name} (e.g., cultural norms, generational factors, social dynamics).
+2. **Conversation Context**:
+   - Review all prior interactions, noting engagement level, topics discussed, and emotional tone.
+   - Consider the conversation stage (e.g., casual chat, personal sharing) and external factors (time of day, mentioned commitments).
+
+### **Step 2: Build Expectations**
+Formulate expectations likely present in {name}'s mind using:
+- **Emotional State**: Gauge current mood (e.g., guarded, enthusiastic) from recent messages.
+- **Relationship Goals**: Infer from explicit statements or implicit cues (e.g., prioritizing trust vs. spontaneity).
+- **Cultural/Social Norms**: Account for generational, regional, or value-based expectations.
+- **Past Experiences**: Use disclosed history (e.g., past relationship traumas) to predict caution or openness.
+
+**Example Expectations to Model**:
+- *Communication*: Expected response time, depth, or humor usage.
+- *Behavioral*: Boundaries (e.g., reluctance to share personal info) or desired gestures of interest.
+- *Future-Oriented*: Alignment with plans (e.g., enthusiasm/hesitation about meeting up).
+
+### **Step 3: Predict Responses**
+Synthesize the above to simulate responses by evaluating:
+1. **Alignment Check**: Does the message align with expectations?
+   - *If yes*: Predict engagement or positivity.
+   - *If no*: Predict confusion, deflection, or disengagement.
+2. **Emotional Resonance**: Match the message tone to their current emotional state.
+   - E.g., Avoid humor if they’re in a vulnerable state.
+3. **Progression Fit**: Does the message advance the conversation as they’d expect?
+   - Sudden personal questions → Hesitation from avoidant types.
+4. **Cultural/Goal Compatibility**: Ensure messages respect norms and goals.
+   - E.g., A traditional individual might expect formal planning vs. casual spontaneity.
+
+### **Output Requirements**:
+1. **Simulated Response**: Write {name}'s likely reply, mirroring their tone and style.
+2. **Psychological Rationale**:
+   - List 3-5 key traits/facts from their profile influencing the response.
+   - Specify 2-3 expectations used (e.g., "Expectation of delayed personal disclosure due to avoidant attachment").
+3. **Prediction Confidence**: Rate confidence (Low/Medium/High) based on profile clarity and expectation alignment.
+
+**Example**:
+*If {name} has Avoidant Attachment and High Neuroticism (Big Five):*
+- **Expectation**: "Will avoid sharing contact details until trust is established."
+- **Prediction**: "Hmm, maybe we can talk more here first?" → Confidence: High.  
 """
